@@ -64,7 +64,7 @@ Model selection was validated with a partial F-test (F = 1.74, p = 0.121), adjus
 
 ## Limitations
 
-Heavy-tailed residuals, mild heteroskedasticity, omitted macro variables (VIX, interest rates), and no time-series structure (autocorrelation/regime shifts) modeled — see the full report for details.
+Heavy-tailed residuals, mild heteroskedasticity, omitted macro variables (VIX, interest rates), and no time-series structure (autocorrelation/regime shifts) modeled.
 
 ## References
 
