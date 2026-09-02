@@ -1,201 +1,73 @@
-<div align="center">
-
 # Silver as a Safe-Haven
-### A Regression Analysis of Daily Silver Spot Returns
 
-*STA302 — Methods of Data Analysis I — University of Toronto*
+This repository contains a regression analysis of daily silver returns, examining whether silver behaves as a safe-haven asset or a cyclical commodity, in the context of its 70%+ price surge in 2025.
 
-![R](https://img.shields.io/badge/R-276DC3?style=flat&logo=r&logoColor=white)
-![Regression](https://img.shields.io/badge/Method-Multiple%20Linear%20Regression-1f6f43)
-![Data](https://img.shields.io/badge/Data-Daily%20Spot%20Prices%20(2010--2024)-2f6fed)
-![Status](https://img.shields.io/badge/Status-Complete-success)
+## Project Overview
 
-</div>
+The objective of this project is to explain daily movements in silver returns using multiple linear regression on gold, equity, oil, and other precious-metal/FX indicators. The analysis includes data preprocessing (log-returns), model selection (full vs. reduced model), residual diagnostics, and interpretation against the empirical literature on precious metals.
 
----
+**Data:** Daily closing spot prices (not futures) for silver, gold, S&P 500, Nasdaq, oil, platinum, palladium, USD/CHF, and EUR/USD — 2010-01-14 to 2024-10-18 (~3,675 trading days). Source: Kaggle "Financial Data" dataset (FranciscoGCC), collected via Alpha Vantage and FRED.
 
-Silver surged over 70% in 2025, outpacing gold and every major equity index. That kind of move raises an obvious question for anyone thinking about portfolio construction: **is silver actually behaving like a safe-haven asset — or is it just riding broader risk sentiment like any other cyclical commodity?**
+## Key Result
 
-This project answers that with data, not narrative: 14+ years of daily spot prices, a carefully validated multiple linear regression model, and a direct comparison against the peer-reviewed literature on precious metals.
+Silver is a **hybrid asset**. Its strongest driver is gold (coefficient ≈ 1.47, p < 2e-16), consistent with safe-haven behavior, but it also carries significant positive exposure to the S&P 500 (≈ 0.38) and oil (≈ 0.02) — evidence it also trades with equity risk sentiment and industrial demand. Adjusted R² = 0.661.
 
-> **Finding:** Silver is a **hybrid asset**. It tracks gold closely (safe-haven behavior) but also carries statistically significant exposure to equities and oil (cyclical, risk-on behavior) — it is neither a pure hedge nor a pure industrial commodity.
+![Cumulative returns](cumulative_returns.png)
 
-<p align="center">
-  <img src="images/cumulative_returns.png" width="720" alt="Cumulative growth of $1 invested in silver, gold, and the S&P 500">
-</p>
+![Coefficient plot](coefficient_plot.png)
 
----
+Silver's rolling correlation with gold stays consistently high (~0.6–0.9) across the full sample, while its correlation with the S&P 500 swings and even turns negative during risk-off periods (2020, 2022) — visual evidence of its dual nature.
 
-## Contents
+![Rolling correlation](rolling_correlation.png)
 
-- [Research question](#research-question)
-- [The data](#the-data)
-- [Why this isn't as simple as it looks](#why-this-isnt-as-simple-as-it-looks)
-- [Methodology](#methodology)
-- [Results](#results)
-- [The hybrid-asset story, visually](#the-hybrid-asset-story-visually)
-- [Limitations](#limitations)
-- [Repository structure](#repository-structure)
-- [Reproduce this](#reproduce-this)
+## Repository Structure
 
----
+- `model_data.csv`: cleaned, return-transformed dataset used for modelling
+- `analysis.R`: full R workflow — data prep, full/reduced models, VIF, partial F-test, AIC/BIC, confidence and prediction intervals
+- `cumulative_returns.png`, `coefficient_plot.png`, `rolling_correlation.png`, `correlation_heatmap.png`: charts referenced above and in the report
+- `STA-302-PROJECT-PART-2.pdf`: full written report with all diagnostics and literature review
+- `STA302_209_Poster.pdf`: one-page visual summary
 
-## Research question
+## Getting Started
 
-> To what extent do financial market indicators, other precious metal prices, and commodity market conditions explain variations in silver returns — and how do these relationships reveal silver's positioning as a safe-haven asset within broader market conditions?
+### Prerequisites
 
-## The data
+- R (version 4.0 or higher)
+- RStudio (recommended)
 
-| | |
-|---|---|
-| **Source** | Kaggle "Financial Data" dataset (FranciscoGCC), collected via Alpha Vantage and FRED |
-| **Frequency** | Daily |
-| **Span** | 2010-01-14 → 2024-10-18 (3,675 trading days after cleaning) |
-| **Series** | Silver, gold, S&P 500, Nasdaq, oil, platinum, palladium — **daily closing spot prices** — plus USD/CHF, EUR/USD |
+### Required R Packages
 
-<details>
-<summary><b>Spot prices, not futures — why that distinction matters here</b></summary>
-<br>
-
-This dataset uses **spot (cash market) closing prices**, not futures contracts. There's no contract identifier, expiry date, or continuous-contract roll-adjustment anywhere in the data or pipeline — all signs of a futures series — and Alpha Vantage / FRED's standard commodity endpoints return spot or spot-fixing prices by default.
-
-This matters for interpretation: spot prices reflect the immediate cash-market price of the metal itself, with no futures-curve effects (contango/backwardation, roll yield, or funding-cost carry) mixed in. That's the right choice for a question about silver's *fundamental* relationship with other markets — a futures-based study would need to separately account for roll-yield noise before the regression coefficients could be cleanly interpreted.
-</details>
-
-## Why this isn't as simple as it looks
-
-Naively regressing silver's **price level** on gold's price level would give a deceptively high R² — because both series trend upward together over 14 years for reasons that have nothing to do with any real relationship (shared inflation exposure, long-run bull markets, etc.). That's a classic **spurious regression** trap in financial time series.
-
-The fix: convert every series to **daily log-returns** before modeling.
-
-```
-r_t = log(P_t) − log(P_t₋₁)
+```r
+install.packages(c("tidyverse", "car"))
 ```
 
-This one transformation does four things at once:
-- **Stabilizes variance** — price levels have variance that grows with the price itself; returns don't
-- **Removes shared trends** — so any remaining correlation reflects a real day-to-day relationship, not two lines both going up
-- **Straightens relationships** — return-vs-return scatter plots are far more linear than price-vs-price
-- **Makes coefficients interpretable** — a coefficient of 1.47 on gold literally means "a 1% gold move is associated with a 1.47% silver move"
+### Running the Analysis
 
-## Methodology
-
-```mermaid
-flowchart LR
-    A[Raw daily prices] --> B[Log-returns +<br/>1-day lags]
-    B --> C[Full model<br/>12 predictors]
-    C --> D[Diagnostics +<br/>VIF check]
-    D --> E[Drop weak<br/>predictors]
-    E --> F[Reduced model<br/>7 predictors]
-    F --> G[Validate: partial F-test,<br/>AIC/BIC, adj. R²]
-    G --> H[Interpret +<br/>prediction interval]
+Clone the repository:
+```
+git clone https://github.com/vedantriyer/silver-spot-prices-regression.git
 ```
 
-**1. Full model.** Silver's daily return regressed on 12 predictors: same-day gold, S&P 500, Nasdaq, and oil returns; lagged silver, gold, and S&P 500 returns; platinum and palladium price levels; USD/CHF and EUR/USD; an S&P 500 volatility spread.
+Open `analysis.R` in RStudio and run the code chunks sequentially to reproduce the full model, reduced model, diagnostics, and inference results.
 
-**2. Model reduction.** Predictors with weak individual significance (large t-test p-values) were dropped, leaving a 7-predictor reduced model.
+## Results Summary
 
-**3. Four independent checks that the simpler model is justified:**
-
-| Check | Result | Verdict |
+| Predictor | Estimate | p-value |
 |---|---|---|
-| Partial F-test (full vs. reduced) | F = 1.74, p = 0.121 | Dropped variables add no explanatory power |
-| Adjusted R² | 0.6612 → 0.6609 | Virtually unchanged |
-| AIC / BIC | Both lower for reduced model | Reduced model is more efficient |
-| VIF (multicollinearity) | Mostly ~1, equity pair ~7.3 | Below the concern threshold (10) |
+| Gold return | 1.465 | < 2e-16 |
+| S&P 500 return | 0.376 | 2.4×10⁻¹⁷ |
+| Oil return | 0.020 | 4.96×10⁻⁶ |
+| S&P 500 return (lag 1) | 0.042 | 0.010 |
+| Gold return (lag 1) | 0.032 | 0.076 |
 
-**4. Residual diagnostics** on both models (Residuals vs. Fitted, Normal Q-Q, Scale-Location, Residuals vs. Leverage) to check linearity, normality, homoscedasticity, and influential points.
-
-**5. Inference.** 95% confidence intervals on every coefficient, plus a held-out prediction interval checked against the realized outcome.
-
-## Results
-
-**Final model:**
-
-```
-silver_ret = β₀ + β₁·gold_ret + β₂·sp500_ret + β₃·nasdaq_ret + β₄·oil_ret
-           + β₅·gold_ret_lag1 + β₆·sp500_ret_lag1 + β₇·platinum_level + ε
-```
-
-<p align="center">
-  <img src="images/coefficient_plot.png" width="680" alt="Coefficient plot with 95% confidence intervals">
-</p>
-
-| Predictor | Estimate | p-value | Interpretation |
-|---|---|---|---|
-| **Gold return** | 1.465 | < 2e-16 | Dominant driver — strong precious-metal co-movement |
-| **S&P 500 return** | 0.376 | 2.4×10⁻¹⁷ | Silver also trades with equity risk sentiment |
-| **Oil return** | 0.020 | 4.96×10⁻⁶ | Captures silver's industrial-demand channel |
-| S&P 500 return (lag 1) | 0.042 | 0.010 | Modest short-term equity spillover |
-| Gold return (lag 1) | 0.032 | 0.076 | Marginal spillover from gold |
-| Nasdaq return | −0.071 | 0.053 | Borderline, weak/unstable |
-| Platinum level | ~0 | 0.493 | No meaningful effect — dropped in interpretation |
-
-**Adjusted R² = 0.661**
-
-**Prediction interval sanity check:** on a held-out day, the model's 95% prediction interval was [−3.17%, +1.05%]; the actual realized silver return that day was −0.16% — comfortably inside.
-
-## The hybrid-asset story, visually
-
-The clearest evidence for "hybrid asset" isn't in the regression table — it's in how silver's correlation with each market *moves over time*.
-
-<p align="center">
-  <img src="images/rolling_correlation.png" width="720" alt="60-day rolling correlation of silver returns with gold and S&P 500">
-</p>
-
-Silver's correlation with **gold** stays consistently high (roughly 0.6–0.9) across the entire 14-year sample — a stable safe-haven relationship. Its correlation with the **S&P 500**, by contrast, swings from +0.5 to below zero depending on the market regime, spiking during risk-off shocks (2020, 2022) — exactly the kind of unstable, regime-dependent relationship you'd expect from a partly cyclical asset.
-
-<details>
-<summary><b>Full correlation matrix (daily log-returns)</b></summary>
-<br>
-<p align="center">
-  <img src="images/correlation_heatmap.png" width="520" alt="Correlation heatmap of daily log-returns">
-</p>
-</details>
+Model selection was validated with a partial F-test (F = 1.74, p = 0.121), adjusted R² comparison, and AIC/BIC, all confirming the reduced 7-predictor model over the full 12-predictor model.
 
 ## Limitations
 
-- **Heavy-tailed residuals** — visible in the Q-Q plot; expected for daily financial returns, but widens prediction intervals
-- **Mild heteroskedasticity** persists even after model reduction
-- **Omitted variables** — no VIX, interest-rate, or macro-announcement variables included
-- **No time-series structure modeled** — OLS doesn't capture autocorrelation or regime shifts; a GARCH extension is a natural next step
-- **Market microstructure noise** — non-synchronous daily closes across assets add measurement noise
+Heavy-tailed residuals, mild heteroskedasticity, omitted macro variables (VIX, interest rates), and no time-series structure (autocorrelation/regime shifts) modeled — see the full report for details.
 
-## Repository structure
+## References
 
-```
-├── README.md
-├── scripts/
-│   └── analysis.R                    # full R workflow: data prep, full/reduced
-│                                      # models, diagnostics, VIF, partial F-test,
-│                                      # AIC/BIC, confidence & prediction intervals
-├── data/
-│   └── model_data.csv                # cleaned, return-transformed modelling dataset
-├── images/                           # charts embedded in this README
-├── report/
-│   └── STA-302-PROJECT-PART-2.pdf    # full written report
-└── poster/
-    └── STA302_209_Poster.pdf         # one-page visual summary
-```
-
-## Reproduce this
-
-```r
-# Requires: tidyverse, car
-source("scripts/analysis.R")
-```
-
-The script loads `data/model_data.csv`, fits the full and reduced models, runs all diagnostics (VIF, partial F-test, AIC/BIC), and reproduces every result reported above.
-
-## Literature
-
-- Adamkovičová & Blažek (2021), *"Gold and Silver as Safe Havens,"* SHS Web of Conferences
-- Cohen (2022), *"Algorithmic Strategies for Precious Metals Price Forecasting,"* ResearchGate
-- Fatima, Gan & Hu (2022), *"Volatility Analysis of Precious Metals,"* Journal of Risk and Financial Management
-
----
-<div align="center">
-
-*Course project for STA302, Fall 2025 · University of Toronto*
-
-</div>
+- Adamkovičová & Blažek (2021), "Gold and Silver as Safe Havens," SHS Web of Conferences
+- Cohen (2022), "Algorithmic Strategies for Precious Metals Price Forecasting," ResearchGate
+- Fatima, Gan & Hu (2022), "Volatility Analysis of Precious Metals," Journal of Risk and Financial Management
